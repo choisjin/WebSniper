@@ -102,8 +102,9 @@ function colorMat(hex, opts = {}) {
   return { mat: MATS.normal[key], key };
 }
 // 건물 외벽 텍스처: 밝은 바탕(재질 색으로 틴트) + 어두운 창문, 발광 맵은 일부 창만 불 켜짐
+// 타일 하나 = 4×4 칸, 한 칸 = 7.2m(층고)×7.2m. 칸마다 창 하나(폭 2.0m·높이 2.4m, 바닥에서 1.0m) → 실제 건물과 같은 비례
 function facadeTextures() {
-  const N = 4, size = 128, cell = size / N;
+  const N = 4, size = 256, cell = size / N;
   const c1 = document.createElement('canvas'); c1.width = c1.height = size; const g1 = c1.getContext('2d');
   const c2 = document.createElement('canvas'); c2.width = c2.height = size; const g2 = c2.getContext('2d');
   const c3 = document.createElement('canvas'); c3.width = c3.height = size; const g3 = c3.getContext('2d');
@@ -112,7 +113,8 @@ function facadeTextures() {
   g3.fillStyle = '#000000'; g3.fillRect(0, 0, size, size);
   let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const wx = x * cell + cell * 0.28, wy = y * cell + cell * 0.22, ww = cell * 0.44, wh = cell * 0.5;
+    const ww = cell * (2.0 / 7.2), wh = cell * (2.4 / 7.2);
+    const wx = x * cell + (cell - ww) / 2, wy = y * cell + cell * (1 - 3.4 / 7.2); // 캔버스 y는 위가 0이므로 창 상단 = 칸 위에서 (7.2-3.4)/7.2
     const lit = rnd() < 0.22;
     g1.fillStyle = lit ? '#ffe9c0' : '#3a3f4a'; g1.fillRect(wx, wy, ww, wh);
     if (lit) { g2.fillStyle = '#ffffff'; g2.fillRect(wx, wy, ww, wh); }
@@ -287,10 +289,23 @@ function buildWorld(map) {
     const b = s.bi !== undefined ? map.buildings[s.bi] : null;
     const windows = s.kind === 'skyline'; // 건물 창은 실제 개구부이므로 텍스처는 원경에만
     geo.translate(s.x + s.w / 2, s.y + s.h / 2, s.z + s.d / 2);
-    if (windows) worldUV(geo, 3.2, 3.6);
+    if (windows) worldUV(geo, 4 * BUILDING.F, 4 * BUILDING.F); // 타일(4칸) = 28.8m
     if (s.kind === 'bwall' || s.kind === 'car' || s.kind === 'wall' || s.kind === 'crate' || s.kind === 'barrel') edgeGeos.push(new THREE.EdgesGeometry(geo));
     if (s.kind === 'bwin') { push(colorMat(b && b.win ? 0x4a4e5a : 0x3a3d48, { winLit: b && b.win, emissive: 0x14151a }), geo); return; }
-    if (s.kind === 'brail') { push(colorMat(0xb8bcc6, { metal: true }), geo); return; }
+    if (s.kind === 'brail') {
+      const metal = colorMat(0xb8bcc6, { metal: true });
+      if (s.h >= 0.99) {
+        // 충돌용 난간(1m 판)은 낮은 턱 + 기둥 + 손잡이로 그려 벽처럼 보이지 않게
+        geo.dispose();
+        const alongX = s.w > s.d, len = alongX ? s.w : s.d;
+        push(metal, new THREE.BoxGeometry(alongX ? s.w : 0.08, 0.1, alongX ? 0.08 : s.d).translate(s.x + s.w / 2, s.y + 0.05, s.z + s.d / 2));
+        push(metal, new THREE.BoxGeometry(alongX ? s.w : 0.06, 0.06, alongX ? 0.06 : s.d).translate(s.x + s.w / 2, s.y + s.h - 0.03, s.z + s.d / 2));
+        const n = Math.max(2, Math.round(len / 1.2));
+        for (let p = 0; p <= n; p++) { const t = p / n * len; push(metal, new THREE.BoxGeometry(0.06, s.h, 0.06).translate(alongX ? s.x + t : s.x + s.w / 2, s.y + s.h / 2, alongX ? s.z + s.d / 2 : s.z + t)); }
+        return;
+      }
+      push(metal, geo); return;
+    }
     // 실내 요소(바닥·계단)는 그늘이 많아 약한 자체 발광으로 보이게
     const ceiling = s.kind === 'bfloor' || s.kind === 'broof';
     const interior = ceiling || s.kind === 'bstep' || s.kind === 'bwall';

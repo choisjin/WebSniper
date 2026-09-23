@@ -16,7 +16,7 @@ function genMap(seed) {
   const rnd = mulberry32(seed);
   const R = (a, b) => a + rnd() * (b - a);
   const RI = (a, b) => Math.floor(R(a, b + 1));
-  const SIZE = 400, HALF = 200;
+  const SIZE = 600, HALF = 300;
   const solids = [{ x: -HALF - 400, y: -5, z: -HALF - 400, w: SIZE + 800, h: 5, d: SIZE + 800, kind: 'ground' }];
   // 경계 벽
   solids.push({ x: -HALF - 2, y: 0, z: -HALF - 2, w: SIZE + 4, h: 8, d: 2, kind: 'wall' });
@@ -30,7 +30,7 @@ function genMap(seed) {
 
   // 건물: 속이 빈 구조(shared/building.js). 출입구 → 층마다 꺾이는 계단실 → 옥상 해치
   const F = BUILDING.F;
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < 220; i++) {
     const w = R(12, 30), d = R(12, 30);
     const nF = rnd() < 0.5 ? RI(1, 2) : RI(3, 6);
     const h = nF * F;
@@ -55,7 +55,7 @@ function genMap(seed) {
     buildings.push(b);
   }
   // 지상 엄폐물
-  for (let i = 0; i < 220; i++) {
+  for (let i = 0; i < 420; i++) {
     const k = rnd(); let c;
     if (k < 0.3) c = { w: 1, h: 1, d: 1, kind: 'crate' };
     else if (k < 0.5) c = rnd() < 0.5 ? { w: 3, h: 0.6, d: 0.6, kind: 'sandbag' } : { w: 0.6, h: 0.6, d: 3, kind: 'sandbag' };
@@ -68,7 +68,7 @@ function genMap(seed) {
     if (c.kind === 'crate' && rnd() < 0.3) solids.push(Object.assign({}, c, { y: 1 }));
   }
   // 장식물(비충돌: 시야만 가림, 총알 통과)
-  for (let i = 0; i < 110; i++) {
+  for (let i = 0; i < 220; i++) {
     const k = rnd(); let dd;
     if (k < 0.55) dd = { kind: 'tree', r: R(1.8, 3.5), h: R(3.5, 6.5), tr: 0.22 };
     else if (k < 0.8) dd = { kind: 'bush', r: R(0.8, 1.6) };
@@ -79,9 +79,10 @@ function genMap(seed) {
     decor.push(dd);
   }
   // 경계 밖 원경 스카이라인
-  for (let i = 0; i < 90; i++) {
-    const ang = rnd() * Math.PI * 2, dist = R(HALF + 50, HALF + 320), w = R(15, 70);
-    solids.push({ x: Math.cos(ang) * dist - w / 2, y: 0, z: Math.sin(ang) * dist - w / 2, w, h: R(20, 130), d: w, kind: 'skyline' });
+  // 층고 7.2m 배수 높이로 맞춰 창문 줄이 실제 건물과 같은 비례로 보이게
+  for (let i = 0; i < 120; i++) {
+    const ang = rnd() * Math.PI * 2, dist = R(HALF + 50, HALF + 360), w = R(15, 70);
+    solids.push({ x: Math.cos(ang) * dist - w / 2, y: 0, z: Math.sin(ang) * dist - w / 2, w, h: RI(3, 18) * F, d: w, kind: 'skyline' });
   }
   return { SIZE, HALF, solids, decor, ladders, buildings, surfaces, seed };
 }

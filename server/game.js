@@ -41,7 +41,7 @@ class Game {
     this.uid = 1000;
     this.botCount = opts.bots ?? 6;
     this.bulletG = DEFS.BULLET_G; // 캐주얼 기본, 'mode' 메시지로 리얼 탄도 전환
-    this.targetItems = opts.items ?? 90;
+    this.targetItems = opts.items ?? 160;
     this.itemTimer = 0;
     this.tickNo = 0;
     for (let i = 0; i < this.targetItems; i++) this.spawnRandomItem();

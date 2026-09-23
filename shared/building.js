@@ -74,8 +74,11 @@
       for (let i = 0; i < NS; i++) {
         const top = y0 + RISE * (NS + 1 + i), x = x0 + L0 + (NS - 1 - i) * TREAD;
         push(s, x, top - RISE, z2, TREAD, RISE, LANE, 'bstep');
-        push(v, x + TREAD / 2 - 0.025, top, z2, 0.05, RAIL - 0.1, 0.05, 'brail');
-        push(v, x, top + RAIL - 0.1, z2, TREAD, 0.06, 0.05, 'brail');
+        // B런은 양쪽이 트여 있음: 안쪽(레인 사이)과 바깥쪽(실내 낙하면) 모두 난간
+        for (const zr of [z2, z2 + LANE - 0.05]) {
+          push(v, x + TREAD / 2 - 0.025, top, zr, 0.05, RAIL - 0.1, 0.05, 'brail');
+          push(v, x, top + RAIL - 0.1, zr, TREAD, 0.06, 0.05, 'brail');
+        }
       }
     }
     return { solids: s, visual: v, stair: { x: x0, z: z0, w: SX, d: SZ }, interior: { x1: ix1, x2: ix2, z1: z0 + SZ, z2: iz2 } };
