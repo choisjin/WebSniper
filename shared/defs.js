@@ -3,7 +3,7 @@
   const DEFS = {
     // 저격총: dmg 위력, interval 발사 간격(초), mag 탄수, weight 무게(kg), vel 탄속(m/s), reload 재장전 시간
     RIFLES: {
-      vss: { id: 'vss', name: 'VSS 빈토레즈', dmg: 34, interval: 0.16, mag: 20, weight: 2.6, vel: 300, reload: 2.2, rarity: 30, desc: '저위력 · 고연사 · 아음속탄' },
+      vss: { id: 'vss', name: 'VSS 빈토레즈', dmg: 34, interval: 0.16, mag: 20, weight: 2.6, vel: 560, reload: 2.2, rarity: 30, desc: '저위력 · 고연사 · 탄속 느림' },
       svd: { id: 'svd', name: 'SVD 드라구노프', dmg: 52, interval: 0.45, mag: 10, weight: 4.3, vel: 830, reload: 2.8, rarity: 25, desc: '반자동 · 밸런스' },
       m24: { id: 'm24', name: 'M24', dmg: 80, interval: 1.3, mag: 5, weight: 5.5, vel: 850, reload: 3.2, rarity: 20, desc: '볼트액션' },
       awm: { id: 'awm', name: 'AWM', dmg: 112, interval: 1.7, mag: 5, weight: 6.5, vel: 920, reload: 3.6, rarity: 12, desc: '고위력 · 고탄속' },
@@ -41,7 +41,7 @@
     PLAYER: { h: 1.8, hc: 1.1, eye: 1.65, eyeC: 0.95, w: 0.6, headH: 0.3, speed: 4.5, gravity: 20, jump: 6.6, step: 0.6, maxHp: 100, maxStamina: 100, climb: 3.2 },
     // 낙하 피해: 착지 속도가 safe(m/s)를 넘으면 초과분 1m/s당 perUnit 피해 (safe 12m/s ≈ 3.6m 낙하)
     FALL: { safe: 12, perUnit: 6 },
-    BULLET_G: 9.8,
+    BULLET_G: 8, // 탄 낙차 (m/s²). 850m/s 총으로 300m 사격 시 약 0.5m 낙차
     MELEE: { dmg: 45, range: 2.2, cooldown: 0.7 },
     PICKUP_RANGE: 2.2,
     RESPAWN_TIME: 5,

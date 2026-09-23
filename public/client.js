@@ -402,7 +402,7 @@ function spawnFx(x, y, z, color, size, life, additive = true) {
 function spawnTracer(a, b) {
   const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a), new THREE.Vector3(...b)]);
   const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xffe6a0, transparent: true, opacity: 0.9 }));
-  scene.add(line); S.tracers.push({ line, t: 0.25, max: 0.25 });
+  scene.add(line); S.tracers.push({ line, t: 0.1, max: 0.1 }); // 짧게 남겨 궤적 전체가 띠로 보이지 않게
 }
 
 function resize() {
