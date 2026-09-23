@@ -359,7 +359,10 @@ class Game {
       p.vy = fw * P.climb;
       const capY = lad.top + 0.4; // 발이 옥상보다 살짝 위까지 올라가야 앞으로 걸어 올라설 수 있음
       if (p.y + p.vy * dt > capY) p.vy = Math.max(0, (capY - p.y) / dt);
-      p.vx *= 0.6; p.vz *= 0.6;
+      // 앞/뒤 입력은 오르내리기에만 쓰고 수평 이동은 좌우(strafe)만 허용. 옥상 높이에 닿았을 때만 앞으로 걸어 올라섬
+      const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
+      const fwdOK = fw > 0 && p.y >= lad.top - 0.05 ? fw : 0;
+      p.vx = (rx * rt + fx * fwdOK) * speed * 0.6; p.vz = (rz * rt + fz * fwdOK) * speed * 0.6;
     } else {
       if (inp.j && (p.onGround || lad) && !p.crouch) { p.vy = P.jump; p.stamina = Math.max(0, p.stamina - 8); }
       p.vy -= P.gravity * dt;
