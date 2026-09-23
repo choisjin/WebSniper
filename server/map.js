@@ -21,55 +21,64 @@ function genMap(seed) {
   solids.push({ x: -HALF - 2, y: 0, z: HALF, w: SIZE + 4, h: 8, d: 2, kind: 'wall' });
   solids.push({ x: -HALF - 2, y: 0, z: -HALF - 2, w: 2, h: 8, d: SIZE + 4, kind: 'wall' });
   solids.push({ x: HALF, y: 0, z: -HALF - 2, w: 2, h: 8, d: SIZE + 4, kind: 'wall' });
-  const decor = [], ladders = [];
+  const decor = [], ladders = [], buildings = [];
   const surfaces = [{ x1: -HALF + 4, x2: HALF - 4, z1: -HALF + 4, z2: HALF - 4, y: 0, kind: 'ground' }];
   const boxes = [], placed = [];
   const hits = (b, m, list) => list.some(s => s.x < b.x + b.w + m && s.x + s.w > b.x - m && s.z < b.z + b.d + m && s.z + s.d > b.z - m);
-  const inBounds = (b, m) => b.x >= -HALF + m && b.x + b.w <= HALF - m && b.z >= -HALF + m && b.z + b.d <= HALF - m;
 
-  // 건물
+  // 건물: 속이 빈 구조. 출입구 → 층마다 꺾이는 계단실 → 옥상 해치. 층고 3m, 벽 두께 0.4m
+  const F = 3, T = 0.4;
   for (let i = 0; i < 90; i++) {
-    const w = R(8, 30), d = R(8, 30);
-    const low = rnd() < 0.45;
-    const h = low ? R(3, 9) : R(10, 40);
-    const b = { x: R(-HALF + 10, HALF - 10 - w), y: 0, z: R(-HALF + 10, HALF - 10 - d), w, h, d, kind: 'building', win: rnd() < 0.75 };
+    const w = R(9, 30), d = R(9, 30);
+    const nF = rnd() < 0.45 ? RI(1, 3) : RI(4, 13);
+    const h = nF * F;
+    const b = { x: R(-HALF + 10, HALF - 10 - w), y: 0, z: R(-HALF + 10, HALF - 10 - d), w, h, d, nF, win: rnd() < 0.8, bi: buildings.length };
     if (hits(b, 6, boxes)) continue;
-    boxes.push(b); solids.push(b);
-    surfaces.push({ x1: b.x + 0.8, x2: b.x + b.w - 0.8, z1: b.z + 0.8, z2: b.z + b.d - 0.8, y: h, kind: 'roof' });
-    // 낮은 건물엔 외부 계단(자동 스텝업으로 오름)
-    let stairSide = -1;
-    if (low) {
-      const n = Math.ceil(h / 0.55), side = RI(0, 3), steps = [];
-      for (let k = 1; k <= n; k++) {
-        const sh = Math.min(0.55 * k, h), off = (n - k) * 0.6;
-        let s;
-        if (side === 0) s = { x: b.x + b.w / 2 - 1, z: b.z - off - 0.6, w: 2, d: 0.6 };
-        else if (side === 1) s = { x: b.x + b.w / 2 - 1, z: b.z + b.d + off, w: 2, d: 0.6 };
-        else if (side === 2) s = { x: b.x - off - 0.6, z: b.z + b.d / 2 - 1, w: 0.6, d: 2 };
-        else s = { x: b.x + b.w + off, z: b.z + b.d / 2 - 1, w: 0.6, d: 2 };
-        s.y = 0; s.h = sh; s.kind = 'step'; steps.push(s);
-      }
-      if (!steps.some(s => hits(s, 0.5, boxes) || !inBounds(s, 3))) { for (const s of steps) { solids.push(s); boxes.push(s); } stairSide = side; }
+    boxes.push(b);
+    const bi = b.bi;
+    const push = (x, y, z, bw, bh, bd, kind) => solids.push({ x, y, z, w: bw, h: bh, d: bd, kind, bi });
+    // 출입구: 벽 한쪽 중앙, 폭 1.4 높이 2.3. 계단실은 (x0,z0) 모서리이므로 출입구는 +z 또는 +x 벽
+    const doorSide = rnd() < 0.5 ? 1 : 3; // 1: +z 벽, 3: +x 벽
+    b.door = doorSide;
+    const DW = 1.4, DH = 2.3;
+    // 벽 4개 (출입구 벽은 좌/우/상인방 3개로 분할)
+    if (doorSide === 1) { const cx = b.x + b.w / 2; push(b.x, 0, b.z + b.d - T, cx - DW / 2 - b.x, h, T, 'bwall'); push(cx + DW / 2, 0, b.z + b.d - T, b.x + b.w - cx - DW / 2, h, T, 'bwall'); push(cx - DW / 2, DH, b.z + b.d - T, DW, h - DH, T, 'bwall'); }
+    else push(b.x, 0, b.z + b.d - T, b.w, h, T, 'bwall');
+    push(b.x, 0, b.z, b.w, h, T, 'bwall');
+    push(b.x, 0, b.z, T, h, b.d, 'bwall');
+    if (doorSide === 3) { const cz = b.z + b.d / 2; push(b.x + b.w - T, 0, b.z, T, h, cz - DW / 2 - b.z, 'bwall'); push(b.x + b.w - T, 0, cz + DW / 2, T, h, b.z + b.d - cz - DW / 2, 'bwall'); push(b.x + b.w - T, DH, cz - DW / 2, T, h - DH, DW, 'bwall'); }
+    else push(b.x + b.w - T, 0, b.z, T, h, b.d, 'bwall');
+    // 계단실: 모서리 (x0,z0)에서 x방향 4.0m(입구 띠 1.0 + 계단 1.8 + 착지 1.2), z방향 2.6m(1.2 레인 + 0.2 + 1.2 레인)
+    const x0 = b.x + T, z0 = b.z + T, L0 = 1.0, SX = L0 + 1.8 + 1.2, SZ = 2.6;
+    const ix1 = b.x + T, ix2 = b.x + b.w - T, iz1 = b.z + T, iz2 = b.z + b.d - T; // 실내 범위
+    b.stair = { x: x0, z: z0, w: SX, d: SZ };
+    // 층 바닥(k=1..nF-1)과 옥상 슬래브(k=nF): 계단실 위(x0+L0~x0+SX)는 뚫림, 입구 띠(x0~x0+L0)는 막힘
+    for (let k = 1; k <= nF; k++) {
+      const y = k * F - 0.25, kind = k === nF ? 'broof' : 'bfloor';
+      push(ix1, y, iz1, L0, 0.25, SZ, kind);                        // 입구 띠
+      push(x0 + SX, y, iz1, ix2 - (x0 + SX), 0.25, SZ, kind);        // 계단실 오른쪽
+      push(ix1, y, z0 + SZ, ix2 - ix1, 0.25, iz2 - (z0 + SZ), kind); // 나머지 실내
+      if (k < nF) surfaces.push({ x1: ix1 + 0.5, x2: ix2 - 0.5, z1: z0 + SZ + 0.5, z2: iz2 - 0.5, y: k * F, kind: 'floor' });
     }
-    // 계단이 없는 건물엔 사다리 (벽에 붙은 0.8m 두께의 등반 구역, 옥상보다 1.2m 위까지)
-    if (stairSide < 0) {
-      const side = RI(0, 3); let l;
-      if (side === 0) l = { x: b.x + b.w / 2 - 0.5, z: b.z - 0.8, w: 1, d: 0.8 };
-      else if (side === 1) l = { x: b.x + b.w / 2 - 0.5, z: b.z + b.d, w: 1, d: 0.8 };
-      else if (side === 2) l = { x: b.x - 0.8, z: b.z + b.d / 2 - 0.5, w: 0.8, d: 1 };
-      else l = { x: b.x + b.w, z: b.z + b.d / 2 - 0.5, w: 0.8, d: 1 };
-      l.y = 0; l.h = h + 1.2; l.side = side; l.top = h;
-      if (inBounds(l, 2)) { ladders.push(l); stairSide = side; }
+    // 계단: 층마다 A런(레인1, +x, 0.5/1.0/1.5) → 착지(1.5) → B런(레인2, -x, 2.0/2.5/3.0) → 입구 띠(다음 층 바닥)
+    // 디딤판은 두께 0.25의 얇은 판(기둥이 아님): 위층 계단이 머리 위 3.75m 이상에 오도록 헤드룸 확보
+    const TR = 0.25;
+    for (let k = 0; k < nF; k++) {
+      const y = k * F;
+      for (let s = 0; s < 3; s++) push(x0 + L0 + s * 0.6, y + 0.5 * (s + 1) - TR, z0, 0.6, TR, 1.2, 'bstep');
+      push(x0 + L0 + 1.8, y + 1.5 - TR, z0, 1.2, TR, SZ, 'bstep');
+      for (let s = 0; s < 3; s++) push(x0 + L0 + 1.2 - s * 0.6, y + 2.0 + 0.5 * s - TR, z0 + 1.4, 0.6, TR, 1.2, 'bstep');
     }
+    surfaces.push({ x1: b.x + 0.8, x2: b.x + b.w - 0.8, z1: z0 + SZ + 0.5, z2: b.z + b.d - 0.8, y: h, kind: 'roof' });
+    surfaces.push({ x1: ix1 + 0.5, x2: ix2 - 0.5, z1: z0 + SZ + 0.5, z2: iz2 - 0.5, y: 0, kind: 'floor' });
     // 옥상 난간(1m: 웅크리면 숨고, 서면 머리가 보임)
     if (rnd() < 0.8) {
       const ph = 1.0, pt = 0.3;
-      if (stairSide !== 0) solids.push({ x: b.x, y: h, z: b.z, w: b.w, h: ph, d: pt, kind: 'parapet' });
-      if (stairSide !== 1) solids.push({ x: b.x, y: h, z: b.z + b.d - pt, w: b.w, h: ph, d: pt, kind: 'parapet' });
-      if (stairSide !== 2) solids.push({ x: b.x, y: h, z: b.z, w: pt, h: ph, d: b.d, kind: 'parapet' });
-      if (stairSide !== 3) solids.push({ x: b.x + b.w - pt, y: h, z: b.z, w: pt, h: ph, d: b.d, kind: 'parapet' });
+      push(b.x, h, b.z, b.w, ph, pt, 'parapet'); push(b.x, h, b.z + b.d - pt, b.w, ph, pt, 'parapet');
+      push(b.x, h, b.z, pt, ph, b.d, 'parapet'); push(b.x + b.w - pt, h, b.z, pt, ph, b.d, 'parapet');
     }
-    if (w > 10 && d > 10 && rnd() < 0.6) solids.push({ x: R(b.x + 2, b.x + w - 4.5), y: h, z: R(b.z + 2, b.z + d - 4.5), w: R(1, 2.5), h: R(0.8, 2.2), d: R(1, 2.5), kind: 'vent' });
+    if (w > 12 && d > 12 && rnd() < 0.6) push(R(b.x + 6, b.x + w - 4.5), h, R(b.z + 5, b.z + d - 4.5), R(1, 2.5), R(0.8, 2.2), R(1, 2.5), 'vent');
+    buildings.push(b);
   }
   // 지상 엄폐물
   for (let i = 0; i < 220; i++) {
@@ -100,7 +109,7 @@ function genMap(seed) {
     const ang = rnd() * Math.PI * 2, dist = R(HALF + 50, HALF + 320), w = R(15, 70);
     solids.push({ x: Math.cos(ang) * dist - w / 2, y: 0, z: Math.sin(ang) * dist - w / 2, w, h: R(20, 130), d: w, kind: 'skyline' });
   }
-  return { SIZE, HALF, solids, decor, ladders, surfaces, seed };
+  return { SIZE, HALF, solids, decor, ladders, buildings, surfaces, seed };
 }
 
 module.exports = { genMap, mulberry32 };

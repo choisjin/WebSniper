@@ -70,7 +70,7 @@ const camera = new THREE.PerspectiveCamera(DEFS.FOV, 1, 0.1, 1600);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
 const PAL = {
-  normal: { sky: ['#1c2350', '#4a3a6a', '#9a5a68', '#dd8f5f', '#f4b676'], fog: 0xd39a70, fogNear: 140, fogFar: 950, world: 0x6a6f80, ground: 0x4c4e58, grid: 0x52545e, decor: 0x3f7a3a, player: 0x1c1c22, playerEmissive: 0x0c0c10, gear: 0x4a4a56, edge: 0x14141a },
+  normal: { sky: ['#1c2350', '#4a3a6a', '#9a5a68', '#dd8f5f', '#f4b676'], fog: 0xd39a70, fogNear: 140, fogFar: 950, world: 0x6a6f80, ground: 0x767882, grid: 0x52545e, decor: 0x3f7a3a, player: 0x1c1c22, playerEmissive: 0x0c0c10, gear: 0x4a4a56, edge: 0x14141a },
   thermal: { sky: ['#02050b', '#04101e', '#071628', '#0a1a2c', '#0c1e34'], fog: 0x0a1a2c, fogNear: 60, fogFar: 700, world: 0x0d1a2e, ground: 0x061021, grid: 0x0e1d33, decor: 0x081222, player: 0xfff4d6, gear: 0xffe0a0, edge: 0x14283f },
 };
 const MATS = { normal: {}, thermal: {} };
@@ -89,9 +89,10 @@ for (const m of ['normal', 'thermal']) {
 }
 // 색상별 재질 캐시: 일반 모드는 지정 색, 열감지 모드는 어두운 파랑(world/decor)으로 통일
 function colorMat(hex, opts = {}) {
-  const key = (opts.kind || 'w') + ':' + hex.toString(16) + (opts.windows ? ':win' : '') + (opts.metal ? ':m' : '');
+  const key = (opts.kind || 'w') + ':' + hex.toString(16) + (opts.windows ? ':win' : '') + (opts.metal ? ':m' : '') + (opts.emissive ? ':e' + opts.emissive.toString(16) : '');
   if (!MATS.normal[key]) {
     const params = { color: hex, roughness: opts.metal ? 0.45 : 0.9, metalness: opts.metal ? 0.7 : 0 };
+    if (opts.emissive) params.emissive = opts.emissive;
     if (opts.windows) { params.map = TEX.facade; params.emissiveMap = TEX.lit; params.emissive = 0xffc98a; params.emissiveIntensity = 1.2; }
     MATS.normal[key] = new THREE.MeshStandardMaterial(params);
     MATS.thermal[key] = opts.kind === 'd' ? MATS.thermal.decor : MATS.thermal.world;
@@ -115,21 +116,23 @@ function facadeTextures() {
   const mk = (c) => { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; return t; };
   return { facade: mk(c1), lit: mk(c2) };
 }
-// 박스 면별 UV를 실제 크기(m)에 맞춰 반복시켜 창문이 일정 간격으로 나오게 함. 윗면/아랫면은 창문 없음
-function tileBoxUV(geo, w, h, d, cellW = 3.2, cellH = 3.0) {
-  const uv = geo.attributes.uv; const faces = [[d, h], [d, h], null, null, [w, h], [w, h]];
-  for (let f = 0; f < 6; f++) for (let v = 0; v < 4; v++) {
-    const i = f * 4 + v; const s = faces[f];
-    if (!s) { uv.setXY(i, 0.02, 0.02); continue; }
-    uv.setXY(i, uv.getX(i) * s[0] / cellW, uv.getY(i) * s[1] / cellH);
+// 창문 UV를 월드 좌표로 계산: 모든 건물에서 창 크기가 같고(가로 3.2m, 세로 3m 층 단위) 층마다 한 줄씩 정렬됨.
+// 벽이 여러 박스로 나뉘어도 무늬가 이어짐. 윗면/아랫면은 창문 없음. (지오메트리를 월드 위치로 옮긴 뒤 호출)
+function worldUV(geo, cellW = 3.2, cellH = 3.0) {
+  const pos = geo.attributes.position, nor = geo.attributes.normal, uv = geo.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    const nx = nor.getX(i), ny = nor.getY(i);
+    if (Math.abs(ny) > 0.5) { uv.setXY(i, 0.02, 0.02); continue; }
+    const along = Math.abs(nx) > 0.5 ? pos.getZ(i) : pos.getX(i);
+    uv.setXY(i, along / cellW, pos.getY(i) / cellH);
   }
   uv.needsUpdate = true;
 }
 const BUILDING_COLORS = [0x6b7a99, 0x8a6a62, 0x7d8a76, 0x9a8b74, 0x687b88, 0x8a7690, 0x7f8794, 0xa08c78];
 const CAR_COLORS = [0xb84a4a, 0x4a6ab8, 0xd8d8dc, 0x3a3a42, 0xc9a23a, 0x5a8a5a];
-const KIND_COLORS = { step: 0x777a84, parapet: 0x8a8d96, vent: 0x9a9da6, wall: 0x9c9c9c, crate: 0xa5763f, sandbag: 0xa39560, barrel: 0xc0602c, skyline: 0x46507a };
+const KIND_COLORS = { step: 0x777a84, parapet: 0x8a8d96, vent: 0x9a9da6, wall: 0x9c9c9c, crate: 0xa5763f, sandbag: 0xa39560, barrel: 0xc0602c, skyline: 0x46507a, bfloor: 0x5a5c66, bstep: 0x8e919c, broof: 0x6f727c };
 function solidColor(s, i) {
-  if (s.kind === 'building') return BUILDING_COLORS[i % BUILDING_COLORS.length];
+  if (s.kind === 'bwall') return BUILDING_COLORS[(s.bi || 0) % BUILDING_COLORS.length];
   if (s.kind === 'car') return CAR_COLORS[i % CAR_COLORS.length];
   return KIND_COLORS[s.kind] || 0x808088;
 }
@@ -156,7 +159,7 @@ const sunDir = new THREE.Vector3(0.55, 0.3, -0.8).normalize();
 const sun = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX.glow, color: 0xffd9a8, transparent: true, opacity: 0.9, fog: false, depthWrite: false, toneMapped: false }));
 sun.position.copy(sunDir).multiplyScalar(1300); sun.scale.set(260, 260, 1); scene.add(sun);
 // 조명: 하늘/땅 반구광 + 그림자를 드리우는 태양광 + 푸른 보조광
-scene.add(new THREE.HemisphereLight(0xb9c3ff, 0x5a4636, 1.1));
+scene.add(new THREE.HemisphereLight(0xb9c3ff, 0x6e6058, 1.25));
 const dirLight = new THREE.DirectionalLight(0xffd2a0, 2.2);
 dirLight.position.copy(sunDir).multiplyScalar(500); dirLight.castShadow = true;
 dirLight.shadow.mapSize.set(4096, 4096);
@@ -168,7 +171,7 @@ const fillLight = new THREE.DirectionalLight(0x8090c0, 0.5); fillLight.position.
 (function () {
   const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
   const im = g.createImageData(256, 256);
-  for (let i = 0; i < im.data.length; i += 4) { const v = 215 + Math.random() * 40; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
+  for (let i = 0; i < im.data.length; i += 4) { const v = 228 + Math.random() * 27; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
   g.putImageData(im, 0, 0);
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(300, 300); t.colorSpace = THREE.SRGBColorSpace;
   TEX.asphalt = t; MATS.normal.ground.map = t; MATS.normal.ground.needsUpdate = true;
@@ -183,20 +186,23 @@ function buildMinimap(map) {
   g.fillStyle = '#3a3d48'; g.fillRect(0, 0, MM.size, MM.size);
   const rect = (b, col) => { g.fillStyle = col; g.fillRect((b.x + half) * s, (b.z + half) * s, b.w * s, b.d * s); };
   for (const b of map.solids) {
-    if (b.kind === 'ground' || b.kind === 'skyline') continue;
-    if (b.kind === 'building') rect(b, '#8e93a6');
-    else if (b.kind === 'wall' && b.w > 100) rect(b, '#c0c4d0');
-    else if (b.kind === 'step' || b.kind === 'parapet' || b.kind === 'vent') rect(b, '#7a7e90');
+    if (b.kind === 'ground' || b.kind === 'skyline' || b.kind === 'bwall' || b.kind === 'bfloor' || b.kind === 'broof' || b.kind === 'bstep' || b.kind === 'parapet' || b.kind === 'vent') continue;
+    if (b.kind === 'wall' && b.w > 100) rect(b, '#c0c4d0');
+    else if (b.kind === 'step') rect(b, '#7a7e90');
     else rect(b, '#b39a6a');
+  }
+  // 건물: 외곽 + 출입구(노란 점) + 계단실(노란 사각)
+  for (const b of (map.buildings || [])) {
+    rect(b, '#8e93a6');
+    g.fillStyle = '#ffd86a';
+    if (b.stair) g.fillRect((b.stair.x + half) * s, (b.stair.z + half) * s, b.stair.w * s, b.stair.d * s);
+    const dx = b.door === 1 ? b.x + b.w / 2 : b.x + b.w, dz = b.door === 1 ? b.z + b.d : b.z + b.d / 2;
+    g.beginPath(); g.arc((dx + half) * s, (dz + half) * s, 2.5, 0, Math.PI * 2); g.fill();
   }
   for (const d of map.decor) {
     if (d.kind === 'pole') continue;
     g.fillStyle = d.kind === 'tree' ? '#4f8a45' : '#5f9a4f'; g.beginPath(); g.arc((d.x + half) * s, (d.z + half) * s, (d.r || 1) * s, 0, Math.PI * 2); g.fill();
   }
-  // 사다리와 계단은 노란색으로 표시해 올라갈 곳을 찾기 쉽게
-  g.fillStyle = '#ffd86a';
-  for (const l of (map.ladders || [])) g.fillRect((l.x + half) * s - 1, (l.z + half) * s - 1, l.w * s + 2, l.d * s + 2);
-  for (const b of map.solids) if (b.kind === 'step' && b.h < 0.6) g.fillRect((b.x + half) * s, (b.z + half) * s, b.w * s, b.d * s);
   MM.canvas = c;
 }
 function drawMinimap(players, items) {
@@ -272,12 +278,17 @@ function buildWorld(map) {
   const push = (cm, geo) => { let b = buckets.get(cm.key); if (!b) { b = { mat: cm.mat, geos: [] }; buckets.set(cm.key, b); } b.geos.push(geo); };
   map.solids.forEach((s, i) => {
     if (s.kind === 'ground') return;
-    const geo = new THREE.BoxGeometry(s.w, s.h, s.d);
-    const windows = (s.kind === 'building' && s.win) || s.kind === 'skyline';
-    if (windows) tileBoxUV(geo, s.w, s.h, s.d);
-    geo.translate(s.x + s.w / 2, s.y + s.h / 2, s.z + s.d / 2);
-    if (s.kind === 'building' || s.kind === 'car' || s.kind === 'wall' || s.kind === 'crate' || s.kind === 'barrel') edgeGeos.push(new THREE.EdgesGeometry(geo));
-    push(colorMat(solidColor(s, i), { windows }), geo);
+    // 계단 디딤판은 충돌은 0.25m지만 보기엔 0.5m 높이로 그려 계단처럼 이어지게 함
+    const vh = s.kind === 'bstep' ? 0.5 : s.h;
+    const geo = new THREE.BoxGeometry(s.w, vh, s.d);
+    const b = s.kind === 'bwall' ? map.buildings[s.bi] : null;
+    const windows = (b && b.win) || s.kind === 'skyline';
+    geo.translate(s.x + s.w / 2, s.y + s.h - vh / 2, s.z + s.d / 2);
+    if (windows) worldUV(geo);
+    if (s.kind === 'bwall' || s.kind === 'car' || s.kind === 'wall' || s.kind === 'crate' || s.kind === 'barrel') edgeGeos.push(new THREE.EdgesGeometry(geo));
+    // 실내 요소(바닥·계단)는 햇빛이 안 들어 약한 자체 발광으로 보이게
+    const interior = s.kind === 'bfloor' || s.kind === 'bstep' || s.kind === 'broof';
+    push(colorMat(solidColor(s, i), { windows, emissive: interior ? 0x1c1d24 : 0 }), geo);
   });
   const trunkGeo = new THREE.CylinderGeometry(0.2, 0.28, 1, 6), sphereGeo = new THREE.SphereGeometry(1, 8, 6), poleGeo = new THREE.CylinderGeometry(0.06, 0.08, 1, 5);
   const trunk = colorMat(0x5a3f2a, { kind: 'd' }), pole = colorMat(0x8a8d96, { kind: 'd' }), lamp = { mat: MATS.normal.lamp, key: 'lamp' };

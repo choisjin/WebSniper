@@ -31,13 +31,14 @@ function yawTo(dx, dz) { return Math.atan2(-dx, -dz); }
 class Game {
   constructor(opts = {}) {
     this.map = genMap(opts.seed || ((Math.random() * 1e9) | 0));
+    this.buildGrid();
     this.players = new Map();
     this.items = new Map();
     this.bullets = [];
     this.events = [];
     this.priv = new Map();
     this.time = 0;
-    this.uid = 1;
+    this.uid = 1000;
     this.botCount = opts.bots ?? 6;
     this.bulletG = DEFS.BULLET_G; // 캐주얼 기본, 'mode' 메시지로 리얼 탄도 전환
     this.targetItems = opts.items ?? 90;
@@ -46,20 +47,43 @@ class Game {
     for (let i = 0; i < this.targetItems; i++) this.spawnRandomItem();
   }
 
+  // ---------- 공간 격자 (충돌/시야 검사 가속) ----------
+  buildGrid() {
+    this.cell = 16; this.grid = new Map(); this.bigSolids = [];
+    this.map.solids.forEach((s, i) => {
+      s._i = i;
+      if (s.w > 200 || s.d > 200) { this.bigSolids.push(s); return; }
+      const cx1 = Math.floor(s.x / this.cell), cx2 = Math.floor((s.x + s.w) / this.cell), cz1 = Math.floor(s.z / this.cell), cz2 = Math.floor((s.z + s.d) / this.cell);
+      for (let cx = cx1; cx <= cx2; cx++) for (let cz = cz1; cz <= cz2; cz++) { const k = cx * 100003 + cz; let a = this.grid.get(k); if (!a) { a = []; this.grid.set(k, a); } a.push(s); }
+    });
+    this.stamp = 0; this.seen = new Int32Array(this.map.solids.length);
+  }
   // ---------- 위치 샘플링 ----------
   pbox(p, h) { const hh = h !== undefined ? h : (p.crouch ? P.hc : P.h); return { x: p.x - P.w / 2, y: p.y, z: p.z - P.w / 2, w: P.w, h: hh, d: P.w }; }
   solidsNear(box, pad = 0.5) {
     const out = [];
-    for (const s of this.map.solids) if (s.x < box.x + box.w + pad && s.x + s.w > box.x - pad && s.y < box.y + box.h + pad && s.y + s.h > box.y - pad && s.z < box.z + box.d + pad && s.z + s.d > box.z - pad) out.push(s);
+    const x1 = box.x - pad, x2 = box.x + box.w + pad, y1 = box.y - pad, y2 = box.y + box.h + pad, z1 = box.z - pad, z2 = box.z + box.d + pad;
+    const test = (s) => { if (s.x < x2 && s.x + s.w > x1 && s.y < y2 && s.y + s.h > y1 && s.z < z2 && s.z + s.d > z1) out.push(s); };
+    for (const s of this.bigSolids) test(s);
+    const stamp = ++this.stamp;
+    const cx1 = Math.floor(x1 / this.cell), cx2 = Math.floor(x2 / this.cell), cz1 = Math.floor(z1 / this.cell), cz2 = Math.floor(z2 / this.cell);
+    for (let cx = cx1; cx <= cx2; cx++) for (let cz = cz1; cz <= cz2; cz++) {
+      const a = this.grid.get(cx * 100003 + cz); if (!a) continue;
+      for (const s of a) { if (this.seen[s._i] === stamp) continue; this.seen[s._i] = stamp; test(s); }
+    }
     return out;
   }
   randomPoint() {
     const surfs = this.map.surfaces;
-    for (let tries = 0; tries < 30; tries++) {
-      const s = Math.random() < 0.6 ? surfs[0] : surfs[1 + ((Math.random() * (surfs.length - 1)) | 0)];
+    for (let tries = 0; tries < 40; tries++) {
+      const s = Math.random() < 0.5 ? surfs[0] : surfs[1 + ((Math.random() * (surfs.length - 1)) | 0)];
       const pt = { x: s.x1 + Math.random() * (s.x2 - s.x1), y: s.y + 0.01, z: s.z1 + Math.random() * (s.z2 - s.z1) };
       const box = { x: pt.x - 0.4, y: pt.y, z: pt.z - 0.4, w: 0.8, h: 1.9, d: 0.8 };
-      if (!this.solidsNear(box, 0).some(o => overlap(box, o))) return pt;
+      if (this.solidsNear(box, 0).some(o => overlap(box, o))) continue;
+      // 발 밑에 받쳐주는 바닥이 있어야 함(계단실 구멍 위 제외)
+      const under = { x: pt.x - 0.2, y: pt.y - 0.3, z: pt.z - 0.2, w: 0.4, h: 0.29, d: 0.4 };
+      if (!this.solidsNear(under, 0).some(o => overlap(under, o))) continue;
+      return pt;
     }
     return { x: 0, y: 0.01, z: 0 };
   }
@@ -354,7 +378,7 @@ class Game {
     p.vx = mx * speed; p.vz = mz * speed;
     // 사다리: 구역 안에서 앞(W)=오르기, 뒤(S)=내리기, 손 떼면 매달림. 옥상 높이를 넘으면 앞으로 걸어 올라섬
     const box0 = this.pbox(p, h);
-    const lad = this.map.ladders.find(l => overlap(box0, l));
+    const lad = (this.map.ladders || []).find(l => overlap(box0, l));
     p.onLadder = !!lad && !inp.j;
     if (p.onLadder) {
       p.vy = fw * P.climb;
