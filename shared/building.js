@@ -5,7 +5,7 @@
   const F = 7.2, T = 0.4, L0 = 1.2, RISE = 0.2, TREAD = 0.3, NS = 18, LAND = 1.4, LANE = 1.3, GAP = 0.2, SLAB = 0.25;
   const SX = L0 + NS * TREAD + LAND, SZ = LANE * 2 + GAP;
   const DW = 1.6, DH = 2.4, RAIL = 1.0;
-  const WIN_W = 1.8, WIN_CELL = 3.6, WIN_Y1 = 1.0, WIN_Y2 = 3.4;
+  const WIN_W = 2.0, WIN_CELL = 7.2, WIN_Y1 = 1.0, WIN_Y2 = 3.4; // 창 간격 7.2m, 일부는 건너뜀(아래)
   const B = { F, T, SX, SZ, DW, DH, WIN_W, WIN_CELL, WIN_Y1, WIN_Y2 };
 
   // 벽 하나를 창/출입구 개구부를 뺀 사각형들로 분할. side 0:-z 벽, 1:+z 벽, 2:-x 벽, 3:+x 벽
@@ -15,6 +15,7 @@
     const n = Math.max(0, Math.floor((L - 1.2) / WIN_CELL)), off = (L - n * WIN_CELL) / 2;
     for (let k = 0; k < b.nF; k++) {
       for (let i = 0; i < n; i++) {
+        if ((i + k + side + (b.bi || 0)) % 3 === 0) continue; // 건물·층·벽마다 다른 자리를 비워 창이 빙 둘러 촘촘하지 않게
         const a = off + i * WIN_CELL + (WIN_CELL - WIN_W) / 2;
         if (isDoor && k === 0 && a + WIN_W > L / 2 - DW / 2 - 0.4 && a < L / 2 + DW / 2 + 0.4) continue; // 출입구와 겹치는 창은 생략
         opens.push({ a, b: a + WIN_W, y1: k * F + WIN_Y1, y2: k * F + WIN_Y2 });

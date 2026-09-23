@@ -16,7 +16,7 @@ const S = {
   yaw: 0, pitch: 0, pos: { x: 0, y: 0, z: 0 }, eyeH: P.eye, zoomHeld: false, fireHeld: false, keys: {}, sens: 1,
   invOpen: false, locked: false, hitMarker: 0, hitHead: false, swayT: 0, sway: { y: 0, p: 0 }, recoil: 0,
   killedBy: '', invKey: '', bots: 6, noise: null, scoreOpen: false, flashUntil: 0, thermal: false, initPos: false, wasDead: false,
-  fx: [], tracers: [], playerObjs: new Map(), shots: [], vmKick: 0, recoilRate: 0, boltUntil: 0, resScale: 1, fpsAcc: 0, fpsN: 0, fpsTimer: 0, workMs: 0, gpu: '', software: false, capped: false,
+  fx: [], tracers: [], playerObjs: new Map(), shots: [], vmKick: 0, recoilRate: 0, boltUntil: 0, thermalOn: true, resScale: 1, fpsAcc: 0, fpsN: 0, fpsTimer: 0, workMs: 0, gpu: '', software: false, capped: false,
 };
 
 // ---------- 유틸 ----------
@@ -576,6 +576,7 @@ window.addEventListener('keydown', (e) => {
   if (KEYMAP[e.code]) { S.keys[KEYMAP[e.code]] = 1; if (e.code === 'Space' || e.ctrlKey) e.preventDefault(); }
   else if (e.ctrlKey && S.locked) e.preventDefault();
   if (e.code === 'KeyR') send({ t: 'reload' });
+  if (e.code === 'KeyT') { S.thermalOn = !S.thermalOn; toast('열감지 ' + (S.thermalOn ? '켬' : '끔')); sfxTone(S.thermalOn ? 880 : 440, 0.08, 0.1, 'square'); }
   if (e.code === 'KeyF') send({ t: 'pickup' });
   if (/^Digit[1-5]$/.test(e.code)) send({ t: 'use', slot: parseInt(e.code[5], 10) - 1 });
 });
@@ -626,7 +627,7 @@ setInterval(() => {
   if (!S.joined || !S.me) return;
   const z = isZoomed();
   const k = S.invOpen ? {} : S.keys;
-  send({ t: 'i', f: k.f, b: k.b, l: k.l, r: k.r, sp: k.sp, c: k.c, j: k.j, yaw: S.yaw + (z ? S.sway.y : 0), pitch: S.pitch + (z ? S.sway.p : 0), z: z ? 1 : 0 });
+  send({ t: 'i', f: k.f, b: k.b, l: k.l, r: k.r, sp: k.sp, c: k.c, j: k.j, yaw: S.yaw + (z ? S.sway.y : 0), pitch: S.pitch + (z ? S.sway.p : 0), z: z ? 1 : 0, th: S.thermalOn ? 1 : 0 });
 }, 1000 / 30);
 
 // ---------- 시작 화면 ----------
@@ -803,7 +804,7 @@ function drawHUD(zoomed, thermal, players) {
   });
   ctx.font = '12px sans-serif'; ctx.fillStyle = '#cfd6e3';
   const sd = me.scope ? DEFS.SCOPES[me.scope.id] : null;
-  ctx.fillText(sd ? `${sd.name}${sd.thermal ? `  🔋 ${Math.ceil(me.scope.battery)}s` : ''}` : `기본 조준경 ${DEFS.BASE_ZOOM}x`, W - 16, H - 16);
+  ctx.fillText(sd ? `${sd.name}${sd.thermal ? `  🔋 ${Math.ceil(me.scope.battery)}s  열감지 ${S.thermalOn ? 'ON' : 'OFF'} (T)` : ''}` : `기본 조준경 ${DEFS.BASE_ZOOM}x`, W - 16, H - 16);
   if (S.boltUntil > now() && rd) { ctx.textAlign = 'center'; ctx.fillStyle = '#ddd'; ctx.font = '13px sans-serif'; ctx.fillText('볼트 조작 중', W / 2, H / 2 + 60); }
   if (me.reload > 0 && rd) { ctx.textAlign = 'center'; ctx.fillStyle = '#ffd9c4'; ctx.font = 'bold 14px sans-serif'; ctx.fillText(`재장전 중... ${me.reload.toFixed(1)}s`, W / 2, H / 2 + 60); bar(W / 2 - 60, H / 2 + 72, 120, 6, 1 - me.reload / rd.reload, '#ffd9c4'); }
   if (me.using) { ctx.textAlign = 'center'; ctx.fillStyle = '#b8f0c0'; ctx.font = 'bold 14px sans-serif'; ctx.fillText(`${me.using.name} 사용 중`, W / 2, H / 2 + 90); bar(W / 2 - 60, H / 2 + 102, 120, 6, 1 - me.using.left / me.using.total, '#7bde7b'); }

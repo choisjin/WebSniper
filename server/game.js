@@ -167,6 +167,7 @@ class Game {
     if (typeof m.yaw === 'number' && isFinite(m.yaw)) p.yaw = m.yaw;
     if (typeof m.pitch === 'number' && isFinite(m.pitch)) p.pitch = Math.max(-1.5, Math.min(1.5, m.pitch));
     p.zoomed = !!m.z && p.weapon === 'rifle';
+    p.thermalOn = !!m.th;
   }
   action(id, m) {
     const p = this.players.get(id); if (!p || p.dead) return;
@@ -536,7 +537,7 @@ class Game {
       if (p.cooldown > 0) p.cooldown -= dt;
       if (p.reloadEnd && this.time >= p.reloadEnd) { p.reloadEnd = 0; if (p.rifle) p.rifle.ammo = DEFS.RIFLES[p.rifle.id].mag; }
       if (p.using && this.time >= p.using.end) this.finishUse(p);
-      if (p.zoomed && p.scope) { const sd = DEFS.SCOPES[p.scope.id]; if (sd.thermal && p.scope.battery > 0) p.scope.battery = Math.max(0, p.scope.battery - dt); }
+      if (p.zoomed && p.scope && (p.thermalOn || p.bot)) { const sd = DEFS.SCOPES[p.scope.id]; if (sd.thermal && p.scope.battery > 0) p.scope.battery = Math.max(0, p.scope.battery - dt); }
       this.movePlayer(p, dt);
     }
     this.stepBullets(dt);
@@ -561,7 +562,8 @@ class Game {
       rifle: p.rifle, scope: p.scope, vest: p.vest, helmet: p.helmet, bag: p.bag, quick: p.quick,
       reload: p.reloadEnd > this.time ? p.reloadEnd - this.time : 0,
       using: p.using ? { name: p.using.name, left: p.using.end - this.time, total: p.using.end - p.using.start } : null,
-      weight: +this.weight(p).toFixed(1), zoom: this.zoomOf(p), thermal: !!(p.scope && DEFS.SCOPES[p.scope.id].thermal && p.scope.battery > 0),
+      weight: +this.weight(p).toFixed(1), zoom: this.zoomOf(p),
+      thermalScope: !!(p.scope && DEFS.SCOPES[p.scope.id].thermal), thermal: !!(p.scope && DEFS.SCOPES[p.scope.id].thermal && p.scope.battery > 0 && p.thermalOn),
       kills: p.kills, deaths: p.deaths, crouch: p.crouch, weapon: p.weapon, near: near ? { uid: near.uid, type: near.type, id: near.id } : null,
     };
   }
