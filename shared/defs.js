@@ -3,11 +3,12 @@
   const DEFS = {
     // 저격총: dmg 위력, interval 발사 간격(초), mag 탄수, weight 무게(kg), vel 탄속(m/s), reload 재장전 시간
     RIFLES: {
-      vss: { id: 'vss', name: 'VSS 빈토레즈', dmg: 34, interval: 0.16, mag: 20, weight: 2.6, vel: 560, reload: 2.2, rarity: 30, desc: '저위력 · 고연사 · 탄속 느림' },
-      svd: { id: 'svd', name: 'SVD 드라구노프', dmg: 52, interval: 0.45, mag: 10, weight: 4.3, vel: 830, reload: 2.8, rarity: 25, desc: '반자동 · 밸런스' },
-      m24: { id: 'm24', name: 'M24', dmg: 80, interval: 1.3, mag: 5, weight: 5.5, vel: 850, reload: 3.2, rarity: 20, desc: '볼트액션' },
-      awm: { id: 'awm', name: 'AWM', dmg: 112, interval: 1.7, mag: 5, weight: 6.5, vel: 920, reload: 3.6, rarity: 12, desc: '고위력 · 고탄속' },
-      m82: { id: 'm82', name: '바렛 M82', dmg: 140, interval: 0.9, mag: 10, weight: 14, vel: 860, reload: 4.5, rarity: 8, desc: '대물저격 · 매우 무거움' },
+      // recoil: 발사 시 시점이 위로 튀는 각도(라디안), bolt: 볼트액션(사격 후 볼트 조작 동안 조준경 해제)
+      vss: { id: 'vss', name: 'VSS 빈토레즈', dmg: 34, interval: 0.45, mag: 10, weight: 2.6, vel: 560, reload: 2.2, rarity: 30, recoil: 0.03, desc: '반자동 · 저위력 · 빠른 연사' },
+      svd: { id: 'svd', name: 'SVD 드라구노프', dmg: 52, interval: 0.75, mag: 10, weight: 4.3, vel: 830, reload: 2.8, rarity: 25, recoil: 0.045, desc: '반자동 · 밸런스' },
+      m24: { id: 'm24', name: 'M24', dmg: 80, interval: 1.5, mag: 5, weight: 5.5, vel: 850, reload: 3.2, rarity: 20, recoil: 0.06, bolt: true, desc: '볼트액션' },
+      awm: { id: 'awm', name: 'AWM', dmg: 112, interval: 1.8, mag: 5, weight: 6.5, vel: 920, reload: 3.6, rarity: 12, recoil: 0.07, bolt: true, desc: '볼트액션 · 고위력 · 고탄속' },
+      m82: { id: 'm82', name: '바렛 M82', dmg: 140, interval: 1.2, mag: 10, weight: 14, vel: 860, reload: 4.5, rarity: 8, recoil: 0.09, desc: '반자동 대물저격 · 반동 큼 · 매우 무거움' },
     },
     BASE_ZOOM: 3, // 스코프 없을 때 조준경 배율
     SCOPES: {

@@ -16,7 +16,7 @@ const S = {
   yaw: 0, pitch: 0, pos: { x: 0, y: 0, z: 0 }, eyeH: P.eye, zoomHeld: false, fireHeld: false, keys: {}, sens: 1,
   invOpen: false, locked: false, hitMarker: 0, hitHead: false, swayT: 0, sway: { y: 0, p: 0 }, recoil: 0,
   killedBy: '', invKey: '', bots: 6, noise: null, scoreOpen: false, flashUntil: 0, thermal: false, initPos: false, wasDead: false,
-  fx: [], tracers: [], playerObjs: new Map(), shots: [], resScale: 1, fpsAcc: 0, fpsN: 0, fpsTimer: 0, workMs: 0, gpu: '', software: false, capped: false,
+  fx: [], tracers: [], playerObjs: new Map(), shots: [], vmKick: 0, recoilRate: 0, boltUntil: 0, resScale: 1, fpsAcc: 0, fpsN: 0, fpsTimer: 0, workMs: 0, gpu: '', software: false, capped: false,
 };
 
 // ---------- 유틸 ----------
@@ -469,7 +469,15 @@ function handleEvent(e, s) {
       const dist = Math.hypot(e.x - cp.x, e.y - cp.y, e.z - cp.z);
       const p = s.pmap.get(e.by);
       sfxShot(dist, p && (p.r === 'm82' || p.r === 'awm'));
-      if (e.by === S.id) { const d = p && p.r ? DEFS.RIFLES[p.r] : DEFS.RIFLES.vss; S.recoil += 0.002 + d.dmg * 0.00006; S.flashUntil = now() + 0.06; }
+      if (e.by === S.id) {
+        const d = p && p.r ? DEFS.RIFLES[p.r] : DEFS.RIFLES.vss;
+        // 반동: 즉시 위로 튀고(좌우 약간 랜덤), 70%는 0.35초에 걸쳐 되돌아옴
+        const kick = d.recoil * (S.me && S.me.crouch ? 0.7 : 1);
+        S.pitch = clamp(S.pitch + kick, -1.5, 1.5); S.yaw += (Math.random() - 0.5) * kick * 0.5;
+        S.recoil += kick * 0.7; S.recoilRate = (kick * 0.7) / 0.35;
+        S.vmKick = 1; S.flashUntil = now() + 0.06;
+        if (d.bolt) S.boltUntil = now() + Math.min(d.interval, 1.0);
+      }
       else { spawnFx(e.x, e.y, e.z, 0xffd070, 1.2, 0.08); S.shots.push({ x: e.x, z: e.z, t: now() }); if (S.shots.length > 40) S.shots.shift(); }
       break;
     }
@@ -517,7 +525,7 @@ function interp() {
 // ---------- 입력 ----------
 // 웅크리기: Ctrl 또는 C. Ctrl+W는 전체화면(키보드 잠금)에서만 브라우저 대신 게임이 받음
 const KEYMAP = { KeyW: 'f', KeyS: 'b', KeyA: 'l', KeyD: 'r', ShiftLeft: 'sp', ShiftRight: 'sp', KeyC: 'c', ControlLeft: 'c', ControlRight: 'c', Space: 'j' };
-function isZoomed() { return S.joined && S.locked && S.zoomHeld && !S.invOpen && S.me && !S.me.dead && !!S.me.rifle && S.me.weapon === 'rifle'; }
+function isZoomed() { return S.joined && S.locked && S.zoomHeld && !S.invOpen && S.me && !S.me.dead && !!S.me.rifle && S.me.weapon === 'rifle' && !(S.boltUntil > now()); }
 // 휠 무기 전환: [장착 총, 가방의 총들..., 나이프]
 function weaponList() {
   const me = S.me; const list = [];
@@ -573,7 +581,7 @@ hud.addEventListener('mousedown', (e) => {
   if (!S.joined || S.invOpen) return;
   audio();
   if (!S.locked) { lockPointer(); return; }
-  if (e.button === 0) { S.fireHeld = true; send({ t: 'fire' }); }
+  if (e.button === 0) send({ t: 'fire' }); // 클릭당 1발 (홀드 연사 없음)
   if (e.button === 2) S.zoomHeld = true;
 });
 window.addEventListener('mouseup', (e) => { if (e.button === 0) S.fireHeld = false; if (e.button === 2) S.zoomHeld = false; });
@@ -595,7 +603,6 @@ setInterval(() => {
   const z = isZoomed();
   const k = S.invOpen ? {} : S.keys;
   send({ t: 'i', f: k.f, b: k.b, l: k.l, r: k.r, sp: k.sp, c: k.c, j: k.j, yaw: S.yaw + (z ? S.sway.y : 0), pitch: S.pitch + (z ? S.sway.p : 0), z: z ? 1 : 0 });
-  if (S.fireHeld && !S.invOpen) send({ t: 'fire' });
 }, 1000 / 30);
 
 // ---------- 시작 화면 ----------
@@ -773,6 +780,7 @@ function drawHUD(zoomed, thermal, players) {
   ctx.font = '12px sans-serif'; ctx.fillStyle = '#cfd6e3';
   const sd = me.scope ? DEFS.SCOPES[me.scope.id] : null;
   ctx.fillText(sd ? `${sd.name}${sd.thermal ? `  🔋 ${Math.ceil(me.scope.battery)}s` : ''}` : `기본 조준경 ${DEFS.BASE_ZOOM}x`, W - 16, H - 16);
+  if (S.boltUntil > now() && rd) { ctx.textAlign = 'center'; ctx.fillStyle = '#ddd'; ctx.font = '13px sans-serif'; ctx.fillText('볼트 조작 중', W / 2, H / 2 + 60); }
   if (me.reload > 0 && rd) { ctx.textAlign = 'center'; ctx.fillStyle = '#ffd9c4'; ctx.font = 'bold 14px sans-serif'; ctx.fillText(`재장전 중... ${me.reload.toFixed(1)}s`, W / 2, H / 2 + 60); bar(W / 2 - 60, H / 2 + 72, 120, 6, 1 - me.reload / rd.reload, '#ffd9c4'); }
   if (me.using) { ctx.textAlign = 'center'; ctx.fillStyle = '#b8f0c0'; ctx.font = 'bold 14px sans-serif'; ctx.fillText(`${me.using.name} 사용 중`, W / 2, H / 2 + 90); bar(W / 2 - 60, H / 2 + 102, 120, 6, 1 - me.using.left / me.using.total, '#7bde7b'); }
   const qw = 58, qx0 = W / 2 - (qw * 5 + 8 * 4) / 2, qy = H - 70;
@@ -849,8 +857,9 @@ function frame() {
   S.tracers = S.tracers.filter(tr => tr.t > 0);
   if (S.hitMarker > 0) S.hitMarker -= dt;
   if (S.dmgFlash > 0) S.dmgFlash -= dt;
-  // 반동 회복
-  if (S.recoil > 0) { const k = Math.min(S.recoil, dt * 0.05); S.pitch += k; S.recoil -= k; }
+  // 반동 회복(위로 튄 시점이 되돌아옴)
+  if (S.recoil > 0) { const k = Math.min(S.recoil, dt * (S.recoilRate || 0.1)); S.pitch -= k; S.recoil -= k; }
+  if (S.vmKick > 0) S.vmKick = Math.max(0, S.vmKick - dt * 6);
   // 내 위치: 다른 플레이어와 같은 보간 버퍼를 사용해 30Hz 스냅샷 사이를 부드럽게 채움
   const mine = players.find(p => p.id === S.id) || snap.pmap.get(S.id);
   if (mine) {
@@ -879,7 +888,13 @@ function frame() {
   viewModel.visible = !zoomed && !me.dead && !!me.rifle && !knifeOut;
   knifeModel.visible = !me.dead && knifeOut;
   const bob = (S.keys.f || S.keys.b || S.keys.l || S.keys.r) ? Math.sin(t * 9) * 0.012 : 0;
-  if (viewModel.visible) viewModel.position.set(0.32, -0.28 + bob, -0.55 + (me.reload > 0 ? 0.15 : 0));
+  if (viewModel.visible) {
+    // 사격 반동(뒤로 밀림) + 볼트 조작(총이 오른쪽 아래로 기울었다 돌아옴) + 재장전(아래로 내림)
+    const boltT = S.boltUntil > t ? 1 - (S.boltUntil - t) / 1.0 : -1;
+    const bolt = boltT >= 0 ? Math.sin(Math.min(1, boltT * 1.4) * Math.PI) : 0;
+    viewModel.position.set(0.32 + bolt * 0.06, -0.28 + bob - bolt * 0.08, -0.55 + (me.reload > 0 ? 0.15 : 0) + S.vmKick * 0.09);
+    viewModel.rotation.set(0.05 + S.vmKick * 0.12 + bolt * 0.15, 0.12 + bolt * 0.25, 0.05 + bolt * 0.3);
+  }
   if (S.meleeAnim > 0) S.meleeAnim -= dt;
   if (knifeModel.visible) { const sw = S.meleeAnim > 0 ? Math.sin((0.25 - S.meleeAnim) / 0.25 * Math.PI) : 0; knifeModel.position.set(0.3 - sw * 0.25, -0.3 + bob + sw * 0.05, -0.5 - sw * 0.25); knifeModel.rotation.set(0.1 - sw * 0.9, 0.3 + sw * 0.6, 0.1); }
   sky.position.copy(camera.position);
