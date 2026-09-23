@@ -123,7 +123,7 @@ function facadeTextures() {
 }
 // 창문 UV를 월드 좌표로 계산: 모든 건물에서 창 크기가 같고(가로 3.2m, 세로 3m 층 단위) 층마다 한 줄씩 정렬됨.
 // 벽이 여러 박스로 나뉘어도 무늬가 이어짐. 윗면/아랫면은 창문 없음. (지오메트리를 월드 위치로 옮긴 뒤 호출)
-function worldUV(geo, cellW = 3.2, cellH = BUILDING.F) {
+function worldUV(geo, cellW = 3.2, cellH = 3.6) {
   const pos = geo.attributes.position, nor = geo.attributes.normal, uv = geo.attributes.uv;
   for (let i = 0; i < pos.count; i++) {
     const nx = nor.getX(i), ny = nor.getY(i);
@@ -285,15 +285,16 @@ function buildWorld(map) {
     if (s.kind === 'ground') return;
     const geo = new THREE.BoxGeometry(s.w, s.h, s.d);
     const b = s.bi !== undefined ? map.buildings[s.bi] : null;
-    const windows = (s.kind === 'bwall' && b && b.win) || s.kind === 'skyline' || s.kind === 'bwin';
+    const windows = s.kind === 'skyline'; // 건물 창은 실제 개구부이므로 텍스처는 원경에만
     geo.translate(s.x + s.w / 2, s.y + s.h / 2, s.z + s.d / 2);
-    if (windows) worldUV(geo);
+    if (windows) worldUV(geo, 3.2, 3.6);
     if (s.kind === 'bwall' || s.kind === 'car' || s.kind === 'wall' || s.kind === 'crate' || s.kind === 'barrel') edgeGeos.push(new THREE.EdgesGeometry(geo));
     if (s.kind === 'bwin') { push(colorMat(b && b.win ? 0x4a4e5a : 0x3a3d48, { winLit: b && b.win, emissive: 0x14151a }), geo); return; }
     if (s.kind === 'brail') { push(colorMat(0xb8bcc6, { metal: true }), geo); return; }
-    // 실내 요소(바닥·계단)는 햇빛이 안 들어 약한 자체 발광으로 보이게
-    const interior = s.kind === 'bfloor' || s.kind === 'bstep' || s.kind === 'broof';
-    push(colorMat(solidColor(s, i), { windows, emissive: interior ? 0x1c1d24 : 0 }), geo);
+    // 실내 요소(바닥·계단)는 그늘이 많아 약한 자체 발광으로 보이게
+    const ceiling = s.kind === 'bfloor' || s.kind === 'broof';
+    const interior = ceiling || s.kind === 'bstep' || s.kind === 'bwall';
+    push(colorMat(solidColor(s, i), { windows, emissive: ceiling ? 0x2a2c36 : interior ? 0x16171c : 0 }), geo);
   });
   const trunkGeo = new THREE.CylinderGeometry(0.2, 0.28, 1, 6), sphereGeo = new THREE.SphereGeometry(1, 8, 6), poleGeo = new THREE.CylinderGeometry(0.06, 0.08, 1, 5);
   const trunk = colorMat(0x5a3f2a, { kind: 'd' }), pole = colorMat(0x8a8d96, { kind: 'd' }), lamp = { mat: MATS.normal.lamp, key: 'lamp' };

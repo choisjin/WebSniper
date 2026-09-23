@@ -31,8 +31,8 @@ function genMap(seed) {
   // 건물: 속이 빈 구조(shared/building.js). 출입구 → 층마다 꺾이는 계단실 → 옥상 해치
   const F = BUILDING.F;
   for (let i = 0; i < 90; i++) {
-    const w = R(10, 30), d = R(10, 30);
-    const nF = rnd() < 0.45 ? RI(1, 3) : RI(4, 12);
+    const w = R(12, 30), d = R(12, 30);
+    const nF = rnd() < 0.5 ? RI(1, 2) : RI(3, 6);
     const h = nF * F;
     const b = { x: R(-HALF + 10, HALF - 10 - w), y: 0, z: R(-HALF + 10, HALF - 10 - d), w, h, d, nF, win: rnd() < 0.8, bi: buildings.length, door: rnd() < 0.5 ? 1 : 3 };
     if (hits(b, 6, boxes)) continue;
