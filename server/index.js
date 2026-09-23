@@ -41,7 +41,9 @@ wss.on('connection', (ws) => {
     if (m.t === 'join' && pid === null) {
       const p = game.addPlayer(String(m.name || ''), false);
       pid = p.id; clients.set(ws, pid);
-      ws.send(JSON.stringify({ t: 'welcome', id: pid, map: game.map, bots: game.botCount }));
+      // 건물 박스는 클라이언트가 shared/building.js로 같은 파라미터에서 재생성하므로 전송에서 제외
+      const map = Object.assign({}, game.map, { solids: game.map.solids.filter(s => s.bi === undefined) });
+      ws.send(JSON.stringify({ t: 'welcome', id: pid, map, bots: game.botCount }));
       return;
     }
     if (pid === null) return;

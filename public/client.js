@@ -89,11 +89,13 @@ for (const m of ['normal', 'thermal']) {
 }
 // 색상별 재질 캐시: 일반 모드는 지정 색, 열감지 모드는 어두운 파랑(world/decor)으로 통일
 function colorMat(hex, opts = {}) {
-  const key = (opts.kind || 'w') + ':' + hex.toString(16) + (opts.windows ? ':win' : '') + (opts.metal ? ':m' : '') + (opts.emissive ? ':e' + opts.emissive.toString(16) : '');
+  const key = (opts.kind || 'w') + ':' + hex.toString(16) + (opts.windows ? ':win' : '') + (opts.winLit ? ':wl' : '') + (opts.metal ? ':m' : '') + (opts.emissive ? ':e' + opts.emissive.toString(16) : '');
   if (!MATS.normal[key]) {
     const params = { color: hex, roughness: opts.metal ? 0.45 : 0.9, metalness: opts.metal ? 0.7 : 0 };
     if (opts.emissive) params.emissive = opts.emissive;
     if (opts.windows) { params.map = TEX.facade; params.emissiveMap = TEX.lit; params.emissive = 0xffc98a; params.emissiveIntensity = 1.2; }
+    // 실내 창문 패널: 모든 창이 바깥 빛으로 밝게 보임
+    if (opts.winLit) { params.map = TEX.facade; params.emissiveMap = TEX.litAll; params.emissive = 0xf2dcc0; params.emissiveIntensity = 1.0; }
     MATS.normal[key] = new THREE.MeshStandardMaterial(params);
     MATS.thermal[key] = opts.kind === 'd' ? MATS.thermal.decor : MATS.thermal.world;
   }
@@ -104,21 +106,24 @@ function facadeTextures() {
   const N = 4, size = 128, cell = size / N;
   const c1 = document.createElement('canvas'); c1.width = c1.height = size; const g1 = c1.getContext('2d');
   const c2 = document.createElement('canvas'); c2.width = c2.height = size; const g2 = c2.getContext('2d');
+  const c3 = document.createElement('canvas'); c3.width = c3.height = size; const g3 = c3.getContext('2d');
   g1.fillStyle = '#ffffff'; g1.fillRect(0, 0, size, size);
   g2.fillStyle = '#000000'; g2.fillRect(0, 0, size, size);
+  g3.fillStyle = '#000000'; g3.fillRect(0, 0, size, size);
   let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const wx = x * cell + cell * 0.28, wy = y * cell + cell * 0.22, ww = cell * 0.44, wh = cell * 0.5;
     const lit = rnd() < 0.22;
     g1.fillStyle = lit ? '#ffe9c0' : '#3a3f4a'; g1.fillRect(wx, wy, ww, wh);
     if (lit) { g2.fillStyle = '#ffffff'; g2.fillRect(wx, wy, ww, wh); }
+    g3.fillStyle = '#ffffff'; g3.fillRect(wx, wy, ww, wh);
   }
   const mk = (c) => { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; return t; };
-  return { facade: mk(c1), lit: mk(c2) };
+  return { facade: mk(c1), lit: mk(c2), litAll: mk(c3) };
 }
 // 창문 UV를 월드 좌표로 계산: 모든 건물에서 창 크기가 같고(가로 3.2m, 세로 3m 층 단위) 층마다 한 줄씩 정렬됨.
 // 벽이 여러 박스로 나뉘어도 무늬가 이어짐. 윗면/아랫면은 창문 없음. (지오메트리를 월드 위치로 옮긴 뒤 호출)
-function worldUV(geo, cellW = 3.2, cellH = 3.0) {
+function worldUV(geo, cellW = 3.2, cellH = BUILDING.F) {
   const pos = geo.attributes.position, nor = geo.attributes.normal, uv = geo.attributes.uv;
   for (let i = 0; i < pos.count; i++) {
     const nx = nor.getX(i), ny = nor.getY(i);
@@ -186,7 +191,7 @@ function buildMinimap(map) {
   g.fillStyle = '#3a3d48'; g.fillRect(0, 0, MM.size, MM.size);
   const rect = (b, col) => { g.fillStyle = col; g.fillRect((b.x + half) * s, (b.z + half) * s, b.w * s, b.d * s); };
   for (const b of map.solids) {
-    if (b.kind === 'ground' || b.kind === 'skyline' || b.kind === 'bwall' || b.kind === 'bfloor' || b.kind === 'broof' || b.kind === 'bstep' || b.kind === 'parapet' || b.kind === 'vent') continue;
+    if (b.kind === 'ground' || b.kind === 'skyline' || b.bi !== undefined || b.kind === 'parapet' || b.kind === 'vent') continue;
     if (b.kind === 'wall' && b.w > 100) rect(b, '#c0c4d0');
     else if (b.kind === 'step') rect(b, '#7a7e90');
     else rect(b, '#b39a6a');
@@ -276,16 +281,16 @@ function buildWorld(map) {
   const buckets = new Map(); // key -> { mat, geos: [] }
   const edgeGeos = [];
   const push = (cm, geo) => { let b = buckets.get(cm.key); if (!b) { b = { mat: cm.mat, geos: [] }; buckets.set(cm.key, b); } b.geos.push(geo); };
-  map.solids.forEach((s, i) => {
+  map.solids.concat(map.visual || []).forEach((s, i) => {
     if (s.kind === 'ground') return;
-    // 계단 디딤판은 충돌은 0.25m지만 보기엔 0.5m 높이로 그려 계단처럼 이어지게 함
-    const vh = s.kind === 'bstep' ? 0.5 : s.h;
-    const geo = new THREE.BoxGeometry(s.w, vh, s.d);
-    const b = s.kind === 'bwall' ? map.buildings[s.bi] : null;
-    const windows = (b && b.win) || s.kind === 'skyline';
-    geo.translate(s.x + s.w / 2, s.y + s.h - vh / 2, s.z + s.d / 2);
+    const geo = new THREE.BoxGeometry(s.w, s.h, s.d);
+    const b = s.bi !== undefined ? map.buildings[s.bi] : null;
+    const windows = (s.kind === 'bwall' && b && b.win) || s.kind === 'skyline' || s.kind === 'bwin';
+    geo.translate(s.x + s.w / 2, s.y + s.h / 2, s.z + s.d / 2);
     if (windows) worldUV(geo);
     if (s.kind === 'bwall' || s.kind === 'car' || s.kind === 'wall' || s.kind === 'crate' || s.kind === 'barrel') edgeGeos.push(new THREE.EdgesGeometry(geo));
+    if (s.kind === 'bwin') { push(colorMat(b && b.win ? 0x4a4e5a : 0x3a3d48, { winLit: b && b.win, emissive: 0x14151a }), geo); return; }
+    if (s.kind === 'brail') { push(colorMat(0xb8bcc6, { metal: true }), geo); return; }
     // 실내 요소(바닥·계단)는 햇빛이 안 들어 약한 자체 발광으로 보이게
     const interior = s.kind === 'bfloor' || s.kind === 'bstep' || s.kind === 'broof';
     push(colorMat(solidColor(s, i), { windows, emissive: interior ? 0x1c1d24 : 0 }), geo);
@@ -448,7 +453,14 @@ function connect(name, bots) {
   ws.onopen = () => { ws.send(JSON.stringify({ t: 'join', name })); ws.send(JSON.stringify({ t: 'bots', n: bots })); ws.send(JSON.stringify({ t: 'mode', real: document.getElementById('real').checked })); };
   ws.onmessage = (ev) => {
     const m = JSON.parse(ev.data);
-    if (m.t === 'welcome') { S.id = m.id; S.map = m.map; buildWorld(m.map); S.joined = true; document.getElementById('start').classList.add('hidden'); return; }
+    if (m.t === 'welcome') {
+      S.id = m.id; S.map = m.map;
+      // 건물 박스(충돌+시각, 난간, 실내 창문 패널)를 서버와 같은 코드로 재생성
+      const vis = [];
+      for (const b of m.map.buildings) { const p = BUILDING.parts(b); for (const s of p.solids) m.map.solids.push(s); for (const s of p.visual) vis.push(s); }
+      m.map.visual = vis;
+      buildWorld(m.map); S.joined = true; document.getElementById('start').classList.add('hidden'); return;
+    }
     if (m.t === 's') onSnapshot(m);
   };
   ws.onclose = () => { S.joined = false; toast('서버 연결이 끊겼습니다'); document.getElementById('start').classList.remove('hidden'); };
