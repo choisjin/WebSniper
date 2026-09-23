@@ -41,7 +41,8 @@
     PLAYER: { h: 1.8, hc: 1.1, eye: 1.65, eyeC: 0.95, w: 0.6, headH: 0.3, speed: 4.5, gravity: 20, jump: 6.6, step: 0.6, maxHp: 100, maxStamina: 100, climb: 3.2 },
     // 낙하 피해: 착지 속도가 safe(m/s)를 넘으면 초과분 1m/s당 perUnit 피해 (safe 12m/s ≈ 3.6m 낙하)
     FALL: { safe: 12, perUnit: 6 },
-    BULLET_G: 8, // 탄 낙차 (m/s²). 850m/s 총으로 300m 사격 시 약 0.5m 낙차
+    BULLET_G: 2.5,      // 캐주얼 탄 낙차 (m/s²). 850m/s 총으로 300m 사격 시 약 0.15m — 거의 직선
+    BULLET_G_REAL: 9.8, // 리얼 탄도 옵션 (300m에서 약 0.6m 낙차)
     MELEE: { dmg: 45, range: 2.2, cooldown: 0.7 },
     PICKUP_RANGE: 2.2,
     RESPAWN_TIME: 5,

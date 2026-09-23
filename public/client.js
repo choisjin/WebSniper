@@ -434,7 +434,7 @@ function connect(name, bots) {
   const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
   const ws = new WebSocket(proto + location.host);
   S.ws = ws;
-  ws.onopen = () => { ws.send(JSON.stringify({ t: 'join', name })); ws.send(JSON.stringify({ t: 'bots', n: bots })); };
+  ws.onopen = () => { ws.send(JSON.stringify({ t: 'join', name })); ws.send(JSON.stringify({ t: 'bots', n: bots })); ws.send(JSON.stringify({ t: 'mode', real: document.getElementById('real').checked })); };
   ws.onmessage = (ev) => {
     const m = JSON.parse(ev.data);
     if (m.t === 'welcome') { S.id = m.id; S.map = m.map; buildWorld(m.map); S.joined = true; document.getElementById('start').classList.add('hidden'); return; }

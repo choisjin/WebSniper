@@ -47,6 +47,7 @@ wss.on('connection', (ws) => {
     if (pid === null) return;
     if (m.t === 'i') game.setInput(pid, m);
     else if (m.t === 'bots') { game.botCount = Math.max(0, Math.min(20, m.n | 0)); }
+    else if (m.t === 'mode') { game.bulletG = m.real ? require('../shared/defs').BULLET_G_REAL : require('../shared/defs').BULLET_G; }
     else game.action(pid, m);
   });
   ws.on('close', () => { if (pid !== null) { game.removePlayer(pid); clients.delete(ws); } });

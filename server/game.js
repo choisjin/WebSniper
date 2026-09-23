@@ -39,6 +39,7 @@ class Game {
     this.time = 0;
     this.uid = 1;
     this.botCount = opts.bots ?? 6;
+    this.bulletG = DEFS.BULLET_G; // 캐주얼 기본, 'mode' 메시지로 리얼 탄도 전환
     this.targetItems = opts.items ?? 90;
     this.itemTimer = 0;
     this.tickNo = 0;
@@ -380,7 +381,7 @@ class Game {
     const alive = [];
     for (const b of this.bullets) {
       b.px = b.x; b.py = b.y; b.pz = b.z;
-      b.vy -= DEFS.BULLET_G * dt;
+      b.vy -= this.bulletG * dt;
       const nx = b.x + b.vx * dt, ny = b.y + b.vy * dt, nz = b.z + b.vz * dt;
       let bt = 1, hitP = null, hitS = false;
       const seg = { x: Math.min(b.x, nx), y: Math.min(b.y, ny), z: Math.min(b.z, nz), w: Math.abs(nx - b.x), h: Math.abs(ny - b.y), d: Math.abs(nz - b.z) };
@@ -451,7 +452,7 @@ class Game {
       if (dist > 40 && p.onGround) inp.c = 1;
       const d = DEFS.RIFLES[p.rifle ? p.rifle.id : 'vss'];
       const tof = dist / d.vel;
-      const drop = 0.5 * DEFS.BULLET_G * tof * tof;
+      const drop = 0.5 * this.bulletG * tof * tof;
       const err = dist * (0.012 - 0.0095 * ai.skill);
       const lead = tof * (0.5 + ai.skill * 0.5);
       const ax = t.x + t.vx * lead + randn() * err, ay = t.y + th * 0.6 + drop + randn() * err, az = t.z + t.vz * lead + randn() * err;
