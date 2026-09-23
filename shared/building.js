@@ -39,12 +39,17 @@
     }
   }
 
-  // 반환: { solids: 충돌+시각, visual: 시각 전용(계단 난간) }
+  // 반환: { solids: 충돌+시각, visual: 시각 전용 }. 난간은 모두 충돌 박스(통과 불가)
   B.parts = function (b) {
     const s = [], v = [];
     const push = (arr, x, y, z, w, h, d, kind) => arr.push({ x, y, z, w, h, d, kind, bi: b.bi });
     const ix1 = b.x + T, ix2 = b.x + b.w - T, iz1 = b.z + T, iz2 = b.z + b.d - T; // 실내 범위
     for (let side = 0; side < 4; side++) wallBoxes(s, b, side);
+    // 원경 건물(far): 출입구·계단 없이 벽(창 뚫림)과 층 슬래브만
+    if (b.far) {
+      for (let k = 1; k <= b.nF; k++) push(s, ix1, k * F - SLAB, iz1, ix2 - ix1, SLAB, iz2 - iz1, k === b.nF ? 'broof' : 'bfloor');
+      return { solids: s, visual: v, stair: null, interior: null };
+    }
     // 계단실: 모서리 (x0,z0). x방향 SX = 입구띠 L0 + 18단×0.3 + 착지 1.4, z방향 SZ = 레인 1.3 + 0.2 + 레인 1.3
     const x0 = ix1, z0 = iz1;
     // 층 슬래브(k=1..nF-1)와 옥상(k=nF): 계단실 위(x0+L0~x0+SX)는 뚫림. 구멍 둘레 난간(충돌 있음)
@@ -64,21 +69,18 @@
       for (let i = 0; i < NS; i++) {
         const top = y0 + RISE * (i + 1), x = x0 + L0 + i * TREAD;
         push(s, x, top - RISE, z1, TREAD, RISE, LANE, 'bstep');
-        push(v, x + TREAD / 2 - 0.025, top, z1 + LANE - 0.05, 0.05, RAIL - 0.1, 0.05, 'brail');
-        push(v, x, top + RAIL - 0.1, z1 + LANE - 0.05, TREAD, 0.06, 0.05, 'brail');
+        push(s, x, top, z1 + LANE - 0.06, TREAD, RAIL, 0.06, 'brail'); // A런 트인 쪽 난간(충돌)
       }
       const lt = y0 + RISE * NS, lx = x0 + L0 + NS * TREAD;
       push(s, lx, lt - SLAB, z0, LAND, SLAB, SZ, 'bstep');
-      push(v, lx + LAND - 0.06, lt, z0, 0.06, RAIL, SZ, 'brail');
-      push(v, lx, lt, z0 + SZ - 0.06, LAND, RAIL, 0.06, 'brail');
+      push(s, lx + LAND - 0.06, lt, z0, 0.06, RAIL, SZ, 'brail');
+      push(s, lx, lt, z0 + SZ - 0.06, LAND, RAIL, 0.06, 'brail');
       for (let i = 0; i < NS; i++) {
         const top = y0 + RISE * (NS + 1 + i), x = x0 + L0 + (NS - 1 - i) * TREAD;
         push(s, x, top - RISE, z2, TREAD, RISE, LANE, 'bstep');
-        // B런은 양쪽이 트여 있음: 안쪽(레인 사이)과 바깥쪽(실내 낙하면) 모두 난간
-        for (const zr of [z2, z2 + LANE - 0.05]) {
-          push(v, x + TREAD / 2 - 0.025, top, zr, 0.05, RAIL - 0.1, 0.05, 'brail');
-          push(v, x, top + RAIL - 0.1, zr, TREAD, 0.06, 0.05, 'brail');
-        }
+        // B런은 양쪽이 트여 있음: 안쪽(레인 사이)과 바깥쪽(실내 낙하면) 모두 난간(충돌)
+        push(s, x, top, z2, TREAD, RAIL, 0.06, 'brail');
+        push(s, x, top, z2 + LANE - 0.06, TREAD, RAIL, 0.06, 'brail');
       }
     }
     return { solids: s, visual: v, stair: { x: x0, z: z0, w: SX, d: SZ }, interior: { x1: ix1, x2: ix2, z1: z0 + SZ, z2: iz2 } };

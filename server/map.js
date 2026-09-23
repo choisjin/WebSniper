@@ -79,10 +79,15 @@ function genMap(seed) {
     decor.push(dd);
   }
   // 경계 밖 원경 스카이라인
-  // 층고 7.2m 배수 높이로 맞춰 창문 줄이 실제 건물과 같은 비례로 보이게
-  for (let i = 0; i < 120; i++) {
-    const ang = rnd() * Math.PI * 2, dist = R(HALF + 50, HALF + 360), w = R(15, 70);
-    solids.push({ x: Math.cos(ang) * dist - w / 2, y: 0, z: Math.sin(ang) * dist - w / 2, w, h: RI(3, 18) * F, d: w, kind: 'skyline' });
+  // 원경 건물: 경계 밖에 실제 건물과 같은 생성기(창 뚫림, 층 슬래브)로 만들되 출입구·계단은 없음
+  const farBoxes = [];
+  for (let i = 0; i < 140 && farBoxes.length < 70; i++) {
+    const ang = rnd() * Math.PI * 2, dist = R(HALF + 40, HALF + 330), w = R(15, 50), d = R(15, 50);
+    const nF = RI(3, 12);
+    const b = { x: Math.cos(ang) * dist - w / 2, y: 0, z: Math.sin(ang) * dist - d / 2, w, h: nF * F, d, nF, far: true, door: -1, bi: buildings.length };
+    if (hits(b, 4, farBoxes) || (Math.abs(b.x + w / 2) < HALF + 8 && Math.abs(b.z + d / 2) < HALF + 8)) continue;
+    farBoxes.push(b); buildings.push(b);
+    for (const s of BUILDING.parts(b).solids) solids.push(s);
   }
   return { SIZE, HALF, solids, decor, ladders, buildings, surfaces, seed };
 }

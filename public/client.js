@@ -200,6 +200,7 @@ function buildMinimap(map) {
   }
   // 건물: 외곽 + 출입구(노란 점) + 계단실(노란 사각)
   for (const b of (map.buildings || [])) {
+    if (b.far) continue;
     rect(b, '#8e93a6');
     g.fillStyle = '#ffd86a';
     if (b.stair) g.fillRect((b.stair.x + half) * s, (b.stair.z + half) * s, b.stair.w * s, b.stair.d * s);
@@ -287,10 +288,10 @@ function buildWorld(map) {
     if (s.kind === 'ground') return;
     const geo = new THREE.BoxGeometry(s.w, s.h, s.d);
     const b = s.bi !== undefined ? map.buildings[s.bi] : null;
-    const windows = s.kind === 'skyline'; // 건물 창은 실제 개구부이므로 텍스처는 원경에만
+    const windows = s.kind === 'skyline'; // (원경도 실제 개구부로 바뀌어 현재는 사용 안 함)
     geo.translate(s.x + s.w / 2, s.y + s.h / 2, s.z + s.d / 2);
     if (windows) worldUV(geo, 4 * BUILDING.F, 4 * BUILDING.F); // 타일(4칸) = 28.8m
-    if (s.kind === 'bwall' || s.kind === 'car' || s.kind === 'wall' || s.kind === 'crate' || s.kind === 'barrel') edgeGeos.push(new THREE.EdgesGeometry(geo));
+    if (s.kind === 'car' || s.kind === 'crate' || s.kind === 'barrel') edgeGeos.push(new THREE.EdgesGeometry(geo)); // 건물 외벽엔 윤곽선 없음
     if (s.kind === 'bwin') { push(colorMat(b && b.win ? 0x4a4e5a : 0x3a3d48, { winLit: b && b.win, emissive: 0x14151a }), geo); return; }
     if (s.kind === 'brail') {
       const metal = colorMat(0xb8bcc6, { metal: true });
@@ -300,8 +301,12 @@ function buildWorld(map) {
         const alongX = s.w > s.d, len = alongX ? s.w : s.d;
         push(metal, new THREE.BoxGeometry(alongX ? s.w : 0.08, 0.1, alongX ? 0.08 : s.d).translate(s.x + s.w / 2, s.y + 0.05, s.z + s.d / 2));
         push(metal, new THREE.BoxGeometry(alongX ? s.w : 0.06, 0.06, alongX ? 0.06 : s.d).translate(s.x + s.w / 2, s.y + s.h - 0.03, s.z + s.d / 2));
-        const n = Math.max(2, Math.round(len / 1.2));
-        for (let p = 0; p <= n; p++) { const t = p / n * len; push(metal, new THREE.BoxGeometry(0.06, s.h, 0.06).translate(alongX ? s.x + t : s.x + s.w / 2, s.y + s.h / 2, alongX ? s.z + s.d / 2 : s.z + t)); }
+        if (len < 0.6) { // 계단 한 단 길이의 난간: 단마다 기둥 하나
+          push(metal, new THREE.BoxGeometry(0.06, s.h, 0.06).translate(s.x + s.w / 2, s.y + s.h / 2, s.z + s.d / 2));
+        } else {
+          const n = Math.max(1, Math.round(len / 1.2));
+          for (let p = 0; p <= n; p++) { const t = p / n * len; push(metal, new THREE.BoxGeometry(0.06, s.h, 0.06).translate(alongX ? s.x + t : s.x + s.w / 2, s.y + s.h / 2, alongX ? s.z + s.d / 2 : s.z + t)); }
+        }
         return;
       }
       push(metal, geo); return;
