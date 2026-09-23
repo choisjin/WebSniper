@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>WebSniper</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="gl"></canvas>
+<canvas id="game"></canvas>
+
+<!-- 시작 화면 -->
+<div id="start" class="overlay">
+  <div class="panel">
+    <h1>Web<span>Sniper</span></h1>
+    <p class="sub">1인칭 실루엣 저격전 · NPC / 멀티플레이</p>
+    <label>이름 <input id="name" maxlength="12" placeholder="콜사인" autocomplete="off"></label>
+    <label>NPC 수 <input id="bots" type="number" min="0" max="20" value="6"></label>
+    <label>마우스 감도 <input id="sens" type="range" min="0.3" max="3" step="0.1" value="1"></label>
+    <label class="chk"><input id="fullscreen" type="checkbox" checked> 전체화면으로 시작 (마우스가 창 밖으로 나가지 않음, Ctrl+W 등 브라우저 단축키 차단)</label>
+    <label class="chk"><input id="hq" type="checkbox" checked> 고화질 (고해상도 + 안티앨리어싱, 렉이 있으면 끄세요)</label>
+    <button id="join">입장</button>
+    <div class="help">
+      <div><b>W A S D</b> 이동 &nbsp; <b>Space</b> 점프 &nbsp; <b>Shift</b> 달리기 &nbsp; <b>Ctrl / C</b> 앉기 &nbsp; <b>마우스</b> 시점 &nbsp; 사다리 앞에서 <b>W</b> 오르기</div>
+      <div><b>좌클릭</b> 사격 (나이프 들면 근접공격) &nbsp; <b>우클릭(홀드)</b> 조준경 &nbsp; <b>휠</b> 무기 전환(총 ↔ 나이프) &nbsp; <b>R</b> 재장전</div>
+      <div><b>F</b> 아이템 줍기 &nbsp; <b>Q</b> 인벤토리 &nbsp; <b>1~5</b> 퀵슬롯 &nbsp; <b>Tab</b> 점수판 &nbsp; <b>Esc</b> 마우스 해제</div>
+      <div class="tip">낮은 턱·계단은 걸어서 자동으로 올라가고, 높은 건물은 벽의 사다리로 오릅니다(미니맵 노란 표시). 약 4m 이상 떨어지면 낙하 피해를 입습니다. 탄은 중력으로 떨어지므로 원거리는 위를 겨냥하세요.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 인벤토리 -->
+<div id="inv" class="overlay hidden">
+  <div class="panel inv">
+    <div class="inv-head"><h2>인벤토리</h2><span id="inv-weight"></span><button id="inv-close">닫기 (Q)</button></div>
+    <div class="inv-body">
+      <div class="equip">
+        <h3>장비</h3>
+        <div id="equip-list"></div>
+      </div>
+      <div class="bag">
+        <h3>가방 <small id="bag-count"></small></h3>
+        <div id="bag-list"></div>
+      </div>
+    </div>
+    <div class="quick-row"><h3>퀵슬롯</h3><div id="quick-list"></div></div>
+  </div>
+</div>
+
+<div id="hud">
+  <div id="topleft"></div>
+  <div id="killfeed"></div>
+  <div id="toast"></div>
+  <div id="scoreboard" class="hidden"></div>
+</div>
+
+<script src="/shared/defs.js"></script>
+<script type="module" src="client.js"></script>
+</body>
+</html>

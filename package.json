@@ -1,0 +1,13 @@
+{
+  "name": "websniper",
+  "version": "0.1.0",
+  "description": "웹 브라우저용 정면뷰 스나이퍼 게임 (NPC / 멀티플레이)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "three": "^0.186.0",
+    "ws": "^8.18.0"
+  }
+}
